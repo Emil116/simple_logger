@@ -1,78 +1,135 @@
 #ifndef LOGGER_HPP
 #define LOGGER_HPP
 
-#define LOG_ERROR(...) Logger::LogError(__FILE__, __PRETTY_FUNCTION__, __LINE__, __VA_ARGS__)
-#define LOG_DEBUG(...) Logger::LogDebug(__PRETTY_FUNCTION__, __VA_ARGS__)
-#define LOG_INFO(...) Logger::LogInfo(__VA_ARGS__)
+#define LOG_CONSOLE_ERROR(...) Logger::LogConsoleError(__FILE__, __PRETTY_FUNCTION__, __LINE__, __VA_ARGS__)
+#define LOG_CONSOLE_DEBUG(...) Logger::LogConsoleDebug(__PRETTY_FUNCTION__, __VA_ARGS__)
+#define LOG_CONSOLE_INFO(...) Logger::LogConsoleInfo(__VA_ARGS__)
+
+#define LOG_FILE_ERROR(...) Logger::LogFileError(__FILE__, __PRETTY_FUNCTION__, __LINE__, __VA_ARGS__)
+#define LOG_FILE_DEBUG(...) Logger::LogFileDebug(__PRETTY_FUNCTION__, __VA_ARGS__)
+#define LOG_FILE_INFO(...) Logger::LogFileInfo(__VA_ARGS__)
 
 #include <iostream>
+#include <fstream>
 
 class Logger
 {
   public:
     template <typename... Args>
-    static void LogError(const char* file_name, const char* function_name, int line, const Args&... args);
+    static void LogConsoleError(const char* file_name, const char* function_name, int line, const Args&... args);
 
     template <typename... Args>
-    static void LogDebug(const char* function_name, const Args&... args);
+    static void LogConsoleDebug(const char* function_name, const Args&... args);
     
     template <typename... Args>
-    static void LogInfo(const Args&... args);
+    static void LogConsoleInfo(const Args&... args);
+
+    template <typename... Args>
+    static void LogFileError(const char* file_name, const char* function_name, int line, const Args&... args);
+
+    template <typename... Args>
+    static void LogFileDebug(const char* function_name, const Args&... args);
+
+    template <typename... Args>
+    static void LogFileInfo(const Args&... args);
 
   private:
     template <typename T, typename... Args> 
-    static void LogRecursive_(const T& item, const Args&... args);
+    static void LogConsoleRecursive_(std::ostream& out_stream, const T& item, const Args&... args);
 
     template <typename T, typename... Args> 
-    static void LogErrorRecursive_(const T& item, const Args&... args);
+    static void LogFileRecursive_(std::ofstream& out_fstream, const T& item, const Args&... args);
 
-    static void LogRecursive_();
-    static void LogErrorRecursive_();
+    static void LogConsoleRecursive_(std::ostream& stream);
+    static void LogFileRecursive_(std::ofstream& out_fstream);
+
+    static std::ofstream file;
 };
 
+std::ofstream Logger::file("log.txt", std::ios_base::binary|std::ios_base::app);
+
 template <typename... Args>
-void Logger::LogError(const char* file_name, const char* function_name, int line, const Args&... args)
+void Logger::LogConsoleError(const char* file_name, const char* function_name, int line, const Args&... args)
 {
     std::cerr << "[ERROR] " << file_name << ":" << line << ":" << function_name << ": ";
-    LogErrorRecursive_(args...);
+    LogConsoleRecursive_(std::cerr, args...);
 }
 
 template <typename... Args>
-void Logger::LogDebug(const char* function_name, const Args&... args)
+void Logger::LogConsoleDebug(const char* function_name, const Args&... args)
 {
     std::cout << "[DEBUG] " << function_name << ": ";
-    LogRecursive_(args...);
+    LogConsoleRecursive_(std::cout, args...);
 }
 
 template <typename... Args>
-void Logger::LogInfo(const Args&... args)
+void Logger::LogConsoleInfo(const Args&... args)
 {
     std::cout << "[INFO]: ";
-    LogRecursive_(args...);
+    LogConsoleRecursive_(std::cout, args...);
 }
 
 template <typename T, typename... Args> 
-void Logger::LogRecursive_(const T& item, const Args&... args)
+void Logger::LogConsoleRecursive_(std::ostream& out_stream, const T& item, const Args&... args)
 {
-    std::cout << item << " ";
-    LogRecursive_(args...);
+    out_stream << item << " ";
+    LogConsoleRecursive_(out_stream, args...);
+}
+
+void Logger::LogConsoleRecursive_(std::ostream& out_stream)
+{
+    out_stream << std::endl;
+}
+
+template <typename... Args>
+void Logger::LogFileError(const char* file_name, const char* function_name, int line, const Args&... args)
+{
+    if (!file.is_open())
+    {
+        LOG_CONSOLE_ERROR("Can not create log.txt file");
+        return;
+    }
+
+    file << "[ERROR] " << file_name << ":" << line << ":" << function_name << ": ";
+    LogFileRecursive_(file, args...);
+}
+
+template <typename... Args>
+void Logger::LogFileDebug(const char* function_name, const Args&... args)
+{
+    if (!file.is_open())
+    {
+        LOG_CONSOLE_ERROR("Can not create log.txt file");
+        return;
+    }
+
+    file << "[DEBUG] " << function_name << ": ";
+    LogFileRecursive_(file, args...);
+}
+
+template <typename... Args>
+void Logger::LogFileInfo(const Args&... args)
+{
+    if (!file.is_open())
+    {
+        LOG_CONSOLE_ERROR("Can not create log.txt file");
+        return;
+    }
+
+    file << "[INFO]: ";
+    LogFileRecursive_(file, args...);
 }
 
 template <typename T, typename... Args> 
-void Logger::LogErrorRecursive_(const T& item, const Args&... args)
+void Logger::LogFileRecursive_(std::ofstream& out_fstream, const T& item, const Args&... args)
 {
-    std::cerr << item << " ";
-    LogErrorRecursive_(args...);
+    out_fstream << item << " ";
+    LogFileRecursive_(out_fstream, args...);
 }
 
-void Logger::LogRecursive_()
+void Logger::LogFileRecursive_(std::ofstream& out_fstream)
 {
-    std::cout << std::endl;
-}
-
-void Logger::LogErrorRecursive_()
-{
-    std::cerr << std::endl;
+    out_fstream << std::endl;
 }
 
 #endif // LOGGER_HPP
