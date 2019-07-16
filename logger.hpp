@@ -3,12 +3,12 @@
 
 #define LOG_CONSOLE_SUCCESS() Logger::LogConsoleSuccess(__PRETTY_FUNCTION__)
 #define LOG_CONSOLE_ERROR(...) Logger::LogConsoleError(__FILE__, __PRETTY_FUNCTION__, __LINE__, __VA_ARGS__)
-#define LOG_CONSOLE_DEBUG(...) Logger::LogConsoleDebug(__PRETTY_FUNCTION__, __VA_ARGS__)
+#define LOG_CONSOLE_INFO_FUN_NAME(...) Logger::LogConsoleInfoFunName(__PRETTY_FUNCTION__, __VA_ARGS__)
 #define LOG_CONSOLE_INFO(...) Logger::LogConsoleInfo(__VA_ARGS__)
 
 #define LOG_FILE_SUCCESS() Logger::LogFileSuccess(__PRETTY_FUNCTION__)
 #define LOG_FILE_ERROR(...) Logger::LogFileError(__FILE__, __PRETTY_FUNCTION__, __LINE__, __VA_ARGS__)
-#define LOG_FILE_DEBUG(...) Logger::LogFileDebug(__PRETTY_FUNCTION__, __VA_ARGS__)
+#define LOG_FILE_INFO_FUN_NAME(...) Logger::LogFileInfoFunName(__PRETTY_FUNCTION__, __VA_ARGS__)
 #define LOG_FILE_INFO(...) Logger::LogFileInfo(__VA_ARGS__)
 
 #include <iostream>
@@ -24,7 +24,7 @@ class Logger
     inline static void LogConsoleError(const char* file_name, const char* function_name, int line, const Args&... args);
 
     template <typename... Args>
-    inline static void LogConsoleDebug(const char* function_name, const Args&... args);
+    inline static void LogConsoleInfoFunName(const char* function_name, const Args&... args);
     
     template <typename... Args>
     inline static void LogConsoleInfo(const Args&... args);
@@ -33,7 +33,7 @@ class Logger
     inline static void LogFileError(const char* file_name, const char* function_name, int line, const Args&... args);
 
     template <typename... Args>
-    inline static void LogFileDebug(const char* function_name, const Args&... args);
+    inline static void LogFileInfoFunName(const char* function_name, const Args&... args);
 
     template <typename... Args>
     inline static void LogFileInfo(const Args&... args);
@@ -63,7 +63,7 @@ inline void Logger::LogConsoleError(const char* file_name, const char* function_
 }
 
 template <typename... Args>
-inline void Logger::LogConsoleDebug(const char* function_name, const Args&... args)
+inline void Logger::LogConsoleInfoFunName(const char* function_name, const Args&... args)
 {
     std::cout << function_name << ": ";
     LogConsoleRecursive_(std::cout, args...);
@@ -72,7 +72,6 @@ inline void Logger::LogConsoleDebug(const char* function_name, const Args&... ar
 template <typename... Args>
 inline void Logger::LogConsoleInfo(const Args&... args)
 {
-    std::cout << "[INFO]: ";
     LogConsoleRecursive_(std::cout, args...);
 }
 
@@ -104,7 +103,7 @@ inline void Logger::LogFileError(const char* file_name, const char* function_nam
 }
 
 template <typename... Args>
-inline void Logger::LogFileDebug(const char* function_name, const Args&... args)
+inline void Logger::LogFileInfoFunName(const char* function_name, const Args&... args)
 {
     static std::ofstream file("log.txt", std::ios_base::binary|std::ios_base::app);
 
@@ -114,7 +113,7 @@ inline void Logger::LogFileDebug(const char* function_name, const Args&... args)
         return;
     }
 
-    file << "[" << GetCurrentTime() << "] " << function_name << ": ";
+    file << "[" << GetCurrentTime() << "]: " << function_name << ": ";
     LogFileRecursive_(file, args...);
 }
 
@@ -129,7 +128,7 @@ inline void Logger::LogFileInfo(const Args&... args)
         return;
     }
 
-    file << "[" << GetCurrentTime() << "] [INFO]: ";
+    file << "[" << GetCurrentTime() << "]: ";
     LogFileRecursive_(file, args...);
 }
 
