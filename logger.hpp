@@ -1,15 +1,10 @@
 #ifndef LOGGER_HPP
 #define LOGGER_HPP
 
-#define LOG_CONSOLE_SUCCESS() Logger::LogConsoleSuccess(__PRETTY_FUNCTION__)
-#define LOG_CONSOLE_ERROR(...) Logger::LogConsoleError(__FILE__, __PRETTY_FUNCTION__, __LINE__, __VA_ARGS__)
-#define LOG_CONSOLE_INFO_FUN_NAME(...) Logger::LogConsoleInfoFunName(__PRETTY_FUNCTION__, __VA_ARGS__)
-#define LOG_CONSOLE_INFO(...) Logger::LogConsoleInfo(__VA_ARGS__)
-
-#define LOG_FILE_SUCCESS() Logger::LogFileSuccess(__PRETTY_FUNCTION__)
-#define LOG_FILE_ERROR(...) Logger::LogFileError(__FILE__, __PRETTY_FUNCTION__, __LINE__, __VA_ARGS__)
-#define LOG_FILE_INFO_FUN_NAME(...) Logger::LogFileInfoFunName(__PRETTY_FUNCTION__, __VA_ARGS__)
-#define LOG_FILE_INFO(...) Logger::LogFileInfo(__VA_ARGS__)
+#define LOG_INFO(...) Logger::LogInfo(__VA_ARGS__)
+#define LOG_DEBUG(...) Logger::LogDebug(__PRETTY_FUNCTION__, __VA_ARGS__)
+#define LOG_SUCCESS() Logger::LogSuccess(__PRETTY_FUNCTION__)
+#define LOG_ERROR(...) Logger::LogError(__FILE__, __PRETTY_FUNCTION__, __LINE__, __VA_ARGS__)
 
 #include <chrono>
 #include <ctime>
@@ -19,151 +14,162 @@
 
 class Logger
 {
+  private:
+    enum StreamType
+    {
+        CONSOLE,
+        FILE
+    };
+
   public:
     Logger() = delete;
-    
-    template <typename... Args>
-    inline static void LogConsoleError(const char* file_name, const char* function_name, int line,
-                                       const Args&... args);
+
+    inline static void SetStream(StreamType stream_type);
+
+    template <typename... Args> inline static void LogInfo(const Args&... args);
 
     template <typename... Args>
-    inline static void LogConsoleInfoFunName(const char* function_name, const Args&... args);
-
-    template <typename... Args> inline static void LogConsoleInfo(const Args&... args);
+    inline static void LogDebug(const char* function_name, const Args&... args);
 
     template <typename... Args>
-    inline static void LogFileError(const char* file_name, const char* function_name, int line,
-                                    const Args&... args);
+    inline static void LogError(const char* file_name, const char* function_name, int line,
+                                const Args&... args);
 
-    template <typename... Args>
-    inline static void LogFileInfoFunName(const char* function_name, const Args&... args);
+    inline static void LogSuccess(const char* function_name);
 
-    template <typename... Args> inline static void LogFileInfo(const Args&... args);
-
-    inline static void LogConsoleSuccess(const char* function_name);
-    inline static void LogFileSuccess(const char* function_name);
+    constexpr static StreamType console = StreamType::CONSOLE;
+    constexpr static StreamType file = StreamType::FILE;
 
   private:
-    template <typename T, typename... Args>
-    inline static void LogConsoleRecursive_(std::ostream& out_stream, const T& item, const Args&... args);
+    template <typename Stream, typename T, typename... Args>
+    inline static void LogRecursive(Stream& stream, const T& item, const Args&... args);
 
-    template <typename T, typename... Args>
-    inline static void LogFileRecursive_(std::ofstream& out_fstream, const T& item, const Args&... args);
+    template <typename Stream> inline static void LogRecursive(Stream& stream);
+    inline static std::_Put_time<char> CurrentTime();
 
-    inline static void LogConsoleRecursive_(std::ostream& stream);
-    inline static void LogFileRecursive_(std::ofstream& out_fstream);
-    inline static std::_Put_time<char> GetCurrentTime();
+    inline static StreamType stream_type_{Logger::console};
+    constexpr static char* log_file_name{"log.txt"};
+    
+    constexpr static char* error_type{"[ERROR]:"};
+    constexpr static char* debug_type{"[DEBUG]:"};
+    constexpr static char* success_type{"[SUCCESS]:"};
 
-    inline static std::ofstream file;
+    constexpr static char* error_type_color{"\033[31m[ERROR]:\033[0m"};
+    constexpr static char* debug_type_color{"\033[33m[DEBUG]:\033[0m"};
+    constexpr static char* success_type_color{"\033[32m[SUCCESS]:\033[0m"};
 };
 
-template <typename... Args>
-inline void Logger::LogConsoleError(const char* file_name, const char* function_name, int line,
-                                    const Args&... args)
+inline void Logger::SetStream(Logger::StreamType stream_type) { stream_type_ = stream_type; }
+
+template <typename... Args> inline void Logger::LogInfo(const Args&... args)
 {
-    std::cerr << "[ERROR] " << file_name << ":" << line << ":" << function_name << ": ";
-    LogConsoleRecursive_(std::cerr, args...);
-}
-
-template <typename... Args>
-inline void Logger::LogConsoleInfoFunName(const char* function_name, const Args&... args)
-{
-    std::cout << function_name << ": ";
-    LogConsoleRecursive_(std::cout, args...);
-}
-
-template <typename... Args> inline void Logger::LogConsoleInfo(const Args&... args)
-{
-    LogConsoleRecursive_(std::cout, args...);
-}
-
-template <typename T, typename... Args>
-inline void Logger::LogConsoleRecursive_(std::ostream& out_stream, const T& item, const Args&... args)
-{
-    out_stream << item << " ";
-    LogConsoleRecursive_(out_stream, args...);
-}
-
-inline void Logger::LogConsoleRecursive_(std::ostream& out_stream) { out_stream << std::endl; }
-
-template <typename... Args>
-inline void Logger::LogFileError(const char* file_name, const char* function_name, int line,
-                                 const Args&... args)
-{
-    static std::ofstream file("log.txt", std::ios_base::binary | std::ios_base::app);
-
-    if (!file.is_open())
+    switch (stream_type_)
     {
-        LOG_CONSOLE_ERROR("Can not create log.txt file");
-        return;
-    }
+        case Logger::console:
+            LogRecursive(std::cout, args...);
+            break;
 
-    file << "[" << GetCurrentTime() << "] [ERROR] " << file_name << ":" << line << ":" << function_name
-         << ": ";
-    LogFileRecursive_(file, args...);
+        case Logger::file:
+        {
+            std::ofstream log_file(log_file_name, std::ios_base::binary | std::ios_base::app);
+            if (log_file.is_open())
+            {
+                LogRecursive(log_file, args...);
+            }
+        }
+            break;
+
+        default:
+            break;
+    }
+}
+
+template <typename... Args> inline void Logger::LogDebug(const char* function_name, const Args&... args)
+{
+    switch (stream_type_)
+    {
+        case Logger::console:
+            LogRecursive(std::cout, debug_type_color, function_name, ":", args...);
+            break;
+
+        case Logger::file:
+        {
+            std::ofstream log_file(log_file_name, std::ios_base::binary | std::ios_base::app);
+            if (log_file.is_open())
+            {
+                LogRecursive(log_file, CurrentTime(), debug_type, function_name, ":", args...);
+            }
+        }
+            break;
+
+        default:
+            break;
+    }
 }
 
 template <typename... Args>
-inline void Logger::LogFileInfoFunName(const char* function_name, const Args&... args)
+inline void Logger::LogError(const char* file_name, const char* function_name, int line, const Args&... args)
 {
-    static std::ofstream file("log.txt", std::ios_base::binary | std::ios_base::app);
-
-    if (!file.is_open())
+    switch (stream_type_)
     {
-        LOG_CONSOLE_ERROR("Can not create log.txt file");
-        return;
-    }
+        case Logger::console:
+            LogRecursive(std::cerr, error_type_color, file_name, ":", line, ":", function_name, ":", args...);
+            break;
 
-    file << "[" << GetCurrentTime() << "]: " << function_name << ": ";
-    LogFileRecursive_(file, args...);
+        case Logger::file:
+        {
+            std::ofstream log_file(log_file_name, std::ios_base::binary | std::ios_base::app);
+            if (log_file.is_open())
+            {
+                LogRecursive(log_file, CurrentTime(), error_type, line, ":", function_name, ":", args...);
+            }
+        }
+            break;
+
+        default:
+            break;
+    }
 }
 
-template <typename... Args> inline void Logger::LogFileInfo(const Args&... args)
+inline void Logger::LogSuccess(const char* function_name)
 {
-    static std::ofstream file("log.txt", std::ios_base::binary | std::ios_base::app);
-
-    if (!file.is_open())
+    switch (stream_type_)
     {
-        LOG_CONSOLE_ERROR("Can not create log.txt file");
-        return;
+        case Logger::console:
+            LogRecursive(std::cout, success_type_color, function_name);
+            break;
+
+        case Logger::file:
+        {
+            std::ofstream log_file(log_file_name, std::ios_base::binary | std::ios_base::app);
+            if (log_file.is_open())
+            {
+                LogRecursive(log_file, CurrentTime(), success_type, function_name);
+            }
+        }
+            break;
+
+        default:
+            break;
     }
-
-    file << "[" << GetCurrentTime() << "]: ";
-    LogFileRecursive_(file, args...);
 }
 
-template <typename T, typename... Args>
-inline void Logger::LogFileRecursive_(std::ofstream& out_fstream, const T& item, const Args&... args)
+template <typename Stream, typename T, typename... Args>
+inline void Logger::LogRecursive(Stream& stream, const T& item, const Args&... args)
 {
-    out_fstream << item << " ";
-    LogFileRecursive_(out_fstream, args...);
+    stream << item << " ";
+    LogRecursive(stream, args...);
 }
 
-inline void Logger::LogFileRecursive_(std::ofstream& out_fstream) { out_fstream << std::endl; }
-
-inline void Logger::LogConsoleSuccess(const char* function_name)
+template <typename Stream> inline void Logger::LogRecursive(Stream& stream)
 {
-    std::cout << "[SUCCESS]: " << function_name << std::endl;
+    stream << std::endl;
 }
 
-inline void Logger::LogFileSuccess(const char* function_name)
-{
-    static std::ofstream file("log.txt", std::ios_base::binary | std::ios_base::app);
-
-    if (!file.is_open())
-    {
-        LOG_CONSOLE_ERROR("Can not create log.txt file");
-        return;
-    }
-
-    file << "[" << GetCurrentTime() << "] [SUCCESS]: " << function_name << std::endl;
-}
-
-inline std::_Put_time<char> Logger::GetCurrentTime()
+inline std::_Put_time<char> Logger::CurrentTime()
 {
     const auto current_time_t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-
-    return std::put_time(gmtime(&current_time_t), "%Y-%m-%d %H:%M:%S");
+    return std::put_time(gmtime(&current_time_t), "[%Y-%m-%d %H:%M:%S]");
 }
 
 #endif // LOGGER_HPP
