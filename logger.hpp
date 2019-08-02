@@ -11,20 +11,33 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <unordered_set>
+#include <initializer_list>
 
 class Logger
 {
   private:
     enum StreamType
     {
+        NONE,
         CONSOLE,
         FILE
+    };
+
+    enum LogType
+    {
+        INFO,
+        DEBUG,
+        SUCCESS,
+        ERROR,
+        ALL
     };
 
   public:
     Logger() = delete;
 
     inline static void SetStream(StreamType stream_type);
+    inline static void SetLogType(const std::initializer_list<LogType> log_type_list);
 
     template <typename... Args> inline static void LogInfo(const Args&... args);
 
@@ -40,6 +53,12 @@ class Logger
     constexpr static StreamType console = StreamType::CONSOLE;
     constexpr static StreamType file = StreamType::FILE;
 
+    constexpr static LogType info = LogType::INFO;
+    constexpr static LogType debug = LogType::DEBUG;
+    constexpr static LogType success = LogType::SUCCESS;
+    constexpr static LogType error = LogType::ERROR;
+    constexpr static LogType all = LogType::ALL;
+
   private:
     template <typename Stream, typename T, typename... Args>
     inline static void LogRecursive(Stream& stream, const T& item, const Args&... args);
@@ -47,7 +66,7 @@ class Logger
     template <typename Stream> inline static void LogRecursive(Stream& stream);
     inline static std::_Put_time<char> CurrentTime();
 
-    inline static StreamType stream_type_{Logger::console};
+    inline static StreamType stream_type_{console};
     constexpr static char* log_file_name{"log.txt"};
     
     constexpr static char* error_type{"[ERROR]:"};
@@ -57,19 +76,36 @@ class Logger
     constexpr static char* error_type_color{"\033[31m[ERROR]:\033[0m"};
     constexpr static char* debug_type_color{"\033[33m[DEBUG]:\033[0m"};
     constexpr static char* success_type_color{"\033[32m[SUCCESS]:\033[0m"};
+
+    inline static std::unordered_set<LogType> log_type_{all};
 };
 
-inline void Logger::SetStream(Logger::StreamType stream_type) { stream_type_ = stream_type; }
+inline void Logger::SetStream(StreamType stream_type) { stream_type_ = stream_type; }
+
+inline void Logger::SetLogType(const std::initializer_list<LogType> log_type_list)
+{
+    log_type_.clear();
+    
+    for (const auto& log_type : log_type_list)
+    {
+        log_type_.insert(log_type);
+    }
+}
 
 template <typename... Args> inline void Logger::LogInfo(const Args&... args)
 {
+    if (!log_type_.count(info) && !log_type_.count(all))
+    {
+        return;
+    }
+
     switch (stream_type_)
     {
-        case Logger::console:
+        case console:
             LogRecursive(std::cout, args...);
             break;
 
-        case Logger::file:
+        case file:
         {
             std::ofstream log_file(log_file_name, std::ios_base::binary | std::ios_base::app);
             if (log_file.is_open())
@@ -86,13 +122,18 @@ template <typename... Args> inline void Logger::LogInfo(const Args&... args)
 
 template <typename... Args> inline void Logger::LogDebug(const char* function_name, const Args&... args)
 {
+    if (!log_type_.count(debug) && !log_type_.count(all))
+    {
+        return;
+    }
+
     switch (stream_type_)
     {
-        case Logger::console:
+        case console:
             LogRecursive(std::cout, debug_type_color, function_name, ":", args...);
             break;
 
-        case Logger::file:
+        case file:
         {
             std::ofstream log_file(log_file_name, std::ios_base::binary | std::ios_base::app);
             if (log_file.is_open())
@@ -110,13 +151,18 @@ template <typename... Args> inline void Logger::LogDebug(const char* function_na
 template <typename... Args>
 inline void Logger::LogError(const char* file_name, const char* function_name, int line, const Args&... args)
 {
+    if (!log_type_.count(error) && !log_type_.count(all))
+    {
+        return;
+    }
+
     switch (stream_type_)
     {
-        case Logger::console:
+        case console:
             LogRecursive(std::cerr, error_type_color, file_name, ":", line, ":", function_name, ":", args...);
             break;
 
-        case Logger::file:
+        case file:
         {
             std::ofstream log_file(log_file_name, std::ios_base::binary | std::ios_base::app);
             if (log_file.is_open())
@@ -133,13 +179,18 @@ inline void Logger::LogError(const char* file_name, const char* function_name, i
 
 inline void Logger::LogSuccess(const char* function_name)
 {
+    if (!log_type_.count(success) && !log_type_.count(all))
+    {
+        return;
+    }
+
     switch (stream_type_)
     {
-        case Logger::console:
+        case console:
             LogRecursive(std::cout, success_type_color, function_name);
             break;
 
-        case Logger::file:
+        case file:
         {
             std::ofstream log_file(log_file_name, std::ios_base::binary | std::ios_base::app);
             if (log_file.is_open())
